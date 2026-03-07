@@ -74,8 +74,8 @@ public class ChatHook implements ModInitializer
                         WebhookSystem.INSTANCE.sendMessage( sender.player,
                                 String.format("**%s joined the game** %d/%d",
                                         sender.player.getName().getString(),
-                                        Objects.requireNonNull(sender.player.getServer()).getCurrentPlayerCount() + 1,
-                                        sender.player.getServer().getMaxPlayerCount()) );
+                                        Objects.requireNonNull(sender.player.getEntityWorld().getServer()).getCurrentPlayerCount() + 1,
+                                        sender.player.getEntityWorld().getServer().getMaxPlayerCount()) );
                 }
         );
 
@@ -86,8 +86,8 @@ public class ChatHook implements ModInitializer
                         WebhookSystem.INSTANCE.sendMessage( sender.player,
                                 String.format("**%s left the game** %d/%d",
                                         sender.player.getName().getString(),
-                                        Objects.requireNonNull(sender.player.getServer()).getCurrentPlayerCount() - 1,
-                                        sender.player.getServer().getMaxPlayerCount()) );
+                                        Objects.requireNonNull(sender.player.getEntityWorld().getServer()).getCurrentPlayerCount() - 1,
+                                        sender.player.getEntityWorld().getServer().getMaxPlayerCount()) );
                 }
         );
 
