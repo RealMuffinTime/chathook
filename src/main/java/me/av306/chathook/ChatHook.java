@@ -4,6 +4,10 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,11 +19,9 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.text.Text;
-import net.minecraft.server.command.CommandManager;
-import static net.minecraft.server.command.CommandManager.*;
-import net.minecraft.server.command.ServerCommandSource;
+
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
 
 import java.util.Objects;
 
@@ -63,7 +65,7 @@ public class ChatHook implements ModInitializer
             (signedMessage, sender, params) ->
             {
                 if ( cm.getBoolConfig("log_chat_messages") && cm.getBoolConfig( "enabled" ) )
-                    WebhookSystem.INSTANCE.sendMessage( sender, signedMessage.getSignedContent() );
+                    WebhookSystem.INSTANCE.sendMessage( sender, signedMessage.signedContent() );
             }
         );
 
@@ -71,11 +73,11 @@ public class ChatHook implements ModInitializer
         ServerPlayConnectionEvents.JOIN.register(
                 (sender, player, hand) -> {
                     if ( cm.getBoolConfig("log_game_messages") && cm.getBoolConfig( "enabled" ) )
-                        WebhookSystem.INSTANCE.sendMessage( sender.player,
+                        WebhookSystem.INSTANCE.sendMessage( sender.getPlayer(),
                                 String.format("**%s joined the game** %d/%d",
-                                        sender.player.getName().getString(),
-                                        Objects.requireNonNull(sender.player.getEntityWorld().getServer()).getCurrentPlayerCount() + 1,
-                                        sender.player.getEntityWorld().getServer().getMaxPlayerCount()) );
+                                        sender.getPlayer().getName().getString(),
+                                        sender.getPlayer().level().getServer().getPlayerCount() + 1,
+                                        sender.getPlayer().level().getServer().getMaxPlayers()) );
                 }
         );
 
@@ -83,11 +85,11 @@ public class ChatHook implements ModInitializer
         ServerPlayConnectionEvents.DISCONNECT.register(
                 (sender, player) -> {
                     if ( cm.getBoolConfig("log_game_messages") && cm.getBoolConfig( "enabled" ) )
-                        WebhookSystem.INSTANCE.sendMessage( sender.player,
+                        WebhookSystem.INSTANCE.sendMessage( sender.getPlayer(),
                                 String.format("**%s left the game** %d/%d",
-                                        sender.player.getName().getString(),
-                                        Objects.requireNonNull(sender.player.getEntityWorld().getServer()).getCurrentPlayerCount() - 1,
-                                        sender.player.getEntityWorld().getServer().getMaxPlayerCount()) );
+                                        sender.getPlayer().getName().getString(),
+                                        sender.getPlayer().level().getServer().getPlayerCount() - 1,
+                                        sender.getPlayer().level().getServer().getMaxPlayers()) );
                 }
         );
 
@@ -97,7 +99,7 @@ public class ChatHook implements ModInitializer
             (message, source, params) ->
             {
                 if ( cm.getBoolConfig("log_command_messages") && cm.getBoolConfig( "enabled" ) )
-                    WebhookSystem.INSTANCE.sendMessage( source.getPlayer(), message.getSignedContent() );
+                    WebhookSystem.INSTANCE.sendMessage( source.getPlayer(), message.signedContent() );
             }
         );
 
@@ -118,20 +120,20 @@ public class ChatHook implements ModInitializer
     }
 
     private void registerCommands(
-        CommandDispatcher<ServerCommandSource> dispatcher,
-        CommandRegistryAccess registryAccess,
-        CommandManager.RegistrationEnvironment environment )
+            CommandDispatcher<CommandSourceStack> dispatcher,
+            CommandBuildContext commandBuildContext,
+            Commands.CommandSelection commandSelection)
     {
         // Root command
         dispatcher.register( literal( "chathook" )
                 // only L4 ops
-                .requires( source -> source.hasPermissionLevel( 4 ) )
+                .requires( source -> Objects.requireNonNull(source.getPlayer()).hasPermissions( 4 ) )
 
                 // Basic command
                 // mega line
                 .executes( context ->
                 {
-                    context.getSource().sendFeedback( () -> Text.translatable(
+                    context.getSource().sendSuccess( () -> Component.translatable(
                         "commands.chathook.status",
                         cm.getConfig("enabled"),
                         cm.getConfig("log_chat_messages"),
@@ -146,11 +148,11 @@ public class ChatHook implements ModInitializer
                 {
                     if ( !cm.getBoolConfig( "enabled" ) )
                     {
-                        context.getSource().sendFeedback( () -> Text.translatable(
+                        context.getSource().sendSuccess( () -> Component.translatable(
                                 "commands.chathook.enabled" ), false );
                         cm.setConfig("enabled", true);
                     }
-                    else context.getSource().sendFeedback( () -> Text.translatable(
+                    else context.getSource().sendSuccess( () -> Component.translatable(
                             "commands.chathook.already_enabled" ), false );
 
                     return 1;
@@ -161,11 +163,11 @@ public class ChatHook implements ModInitializer
                 {
                     if ( cm.getBoolConfig( "enabled" ) )
                     {
-                        context.getSource().sendFeedback( () -> Text.translatable(
+                        context.getSource().sendSuccess( () -> Component.translatable(
                                 "commands.chathook.disabled" ), false );
                         cm.setConfig( "enabled", false );
                     }
-                    else context.getSource().sendFeedback( () -> Text.translatable(
+                    else context.getSource().sendSuccess( () -> Component.translatable(
                             "commands.chathook.already_disabled" ), false );
 
                     return 1;
@@ -176,7 +178,7 @@ public class ChatHook implements ModInitializer
                         // Log chat status
                         .executes( context ->
                         {
-                            context.getSource().sendFeedback( () -> Text.translatable(
+                            context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logChat.status",
                                     cm.getConfig("log_chat_messages")
                             ), false );
@@ -188,11 +190,11 @@ public class ChatHook implements ModInitializer
                         {
                             if ( !cm.getBoolConfig("log_chat_messages") )
                             {
-                                context.getSource().sendFeedback( () -> Text.translatable(
+                                context.getSource().sendSuccess( () -> Component.translatable(
                                         "commands.chathook.logChat.enabled" ), false );
                                 cm.setConfig("log_chat_messages", true);
                             }
-                            else context.getSource().sendFeedback( () -> Text.translatable(
+                            else context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logChat.already_enabled" ), false );
 
                             return 1;
@@ -203,11 +205,11 @@ public class ChatHook implements ModInitializer
                         {
                             if ( cm.getBoolConfig("log_chat_messages") )
                             {
-                                context.getSource().sendFeedback( () -> Text.translatable(
+                                context.getSource().sendSuccess( () -> Component.translatable(
                                         "commands.chathook.logChat.disabled" ), false );
                                 cm.setConfig("log_chat_messages", false);
                             }
-                            else context.getSource().sendFeedback( () -> Text.translatable(
+                            else context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logChat.already_disabled" ), false );
 
                             return 1;
@@ -219,7 +221,7 @@ public class ChatHook implements ModInitializer
                         // Log game status
                         .executes( context ->
                         {
-                            context.getSource().sendFeedback( () -> Text.translatable(
+                            context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logGame.status",
                                     cm.getConfig("log_game_messages")
                             ), false );
@@ -231,11 +233,11 @@ public class ChatHook implements ModInitializer
                         {
                             if ( !cm.getBoolConfig("log_game_messages") )
                             {
-                                context.getSource().sendFeedback( () -> Text.translatable(
+                                context.getSource().sendSuccess( () -> Component.translatable(
                                         "commands.chathook.logGame.enabled" ), false );
                                 cm.setConfig("log_game_messages", true);
                             }
-                            else context.getSource().sendFeedback( () -> Text.translatable(
+                            else context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logGame.already_enabled" ), false );
 
                             return 1;
@@ -246,11 +248,11 @@ public class ChatHook implements ModInitializer
                         {
                             if ( cm.getBoolConfig("log_game_messages") )
                             {
-                                context.getSource().sendFeedback( () -> Text.translatable(
+                                context.getSource().sendSuccess( () -> Component.translatable(
                                         "commands.chathook.logGame.disabled" ), false );
                                 cm.setConfig("log_game_messages", false);
                             }
-                            else context.getSource().sendFeedback( () -> Text.translatable(
+                            else context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logGame.already_disabled" ), false );
 
                             return 1;
@@ -262,7 +264,7 @@ public class ChatHook implements ModInitializer
                         // Log command messages status
                         .executes( context ->
                         {
-                            context.getSource().sendFeedback( () -> Text.translatable(
+                            context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logCommand.status",
                                     cm.getConfig("log_command_messages")
                             ), false );
@@ -274,11 +276,11 @@ public class ChatHook implements ModInitializer
                         {
                             if ( !cm.getBoolConfig("log_command_messages") )
                             {
-                                context.getSource().sendFeedback( () -> Text.translatable(
+                                context.getSource().sendSuccess( () -> Component.translatable(
                                         "commands.chathook.logCommand.enabled" ), false );
                                 cm.setConfig("log_command_messages", true);
                             }
-                            else context.getSource().sendFeedback( () -> Text.translatable(
+                            else context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logCommand.already_enabled" ), false );
 
                             return 1;
@@ -289,11 +291,11 @@ public class ChatHook implements ModInitializer
                         {
                             if ( cm.getBoolConfig("log_command_messages") )
                             {
-                                context.getSource().sendFeedback( () -> Text.translatable(
+                                context.getSource().sendSuccess( () -> Component.translatable(
                                         "commands.chathook.logCommand.disabled" ), false );
                                 cm.setConfig("log_command_messages", false);
                             }
-                            else context.getSource().sendFeedback( () -> Text.translatable(
+                            else context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.logCommand.already_disabled" ), false );
 
                             return 1;
@@ -305,7 +307,7 @@ public class ChatHook implements ModInitializer
                         // Current webhook url
                         .executes( context ->
                         {
-                            context.getSource().sendFeedback( () -> Text.translatable(
+                            context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.webhook.status",
                                     cm.getConfig("webhook_url")
                             ), false );
@@ -316,7 +318,7 @@ public class ChatHook implements ModInitializer
                         .then( argument("url", greedyString() ) .executes(context ->
                         {
                             cm.setConfig("webhook_url", StringArgumentType.getString(context, "url"));
-                            context.getSource().sendFeedback( () -> Text.translatable(
+                            context.getSource().sendSuccess( () -> Component.translatable(
                                     "commands.chathook.webhook.update",
                                     cm.getConfig("webhook_url")
                             ), false );

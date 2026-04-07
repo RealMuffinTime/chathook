@@ -11,7 +11,7 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 
 import me.av306.chathook.ChatHook;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
 
 public enum WebhookSystem
 {
@@ -28,12 +28,12 @@ public enum WebhookSystem
                 .build();
     }
 
-    public void sendMessage(ServerPlayerEntity player, String message, boolean async ) {
+    public void sendMessage(ServerPlayer player, String message, boolean async ) {
         String username = "";
         String userIcon = "";
         if (player != null) {
             username = String.format("\"username\": \"%s\", ", player.getName().getString());
-            userIcon = String.format("\"avatar_url\": \"https://visage.surgeplay.com/bust/%s\", ", player.getUuid());
+            userIcon = String.format("\"avatar_url\": \"https://visage.surgeplay.com/bust/%s\", ", player.getUUID());
         }
 
         URI uri;
@@ -74,7 +74,7 @@ public enum WebhookSystem
             );
     }
 
-    public void sendMessage(ServerPlayerEntity player, String message ) {
+    public void sendMessage(ServerPlayer player, String message ) {
         sendMessage(player, message, true);
     }
 }
