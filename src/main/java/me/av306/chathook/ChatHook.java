@@ -4,10 +4,12 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.permissions.Permissions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,12 +20,9 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
-
-import java.util.Objects;
 
 public class ChatHook implements ModInitializer
 {
@@ -127,7 +126,7 @@ public class ChatHook implements ModInitializer
         // Root command
         dispatcher.register( literal( "chathook" )
                 // only L4 ops
-                .requires( source -> Objects.requireNonNull(source.getPlayer()).hasPermissions( 4 ) )
+                .requires( source -> source.permissions().hasPermission(Permissions.COMMANDS_MODERATOR) )
 
                 // Basic command
                 // mega line
